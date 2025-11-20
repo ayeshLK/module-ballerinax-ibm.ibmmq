@@ -229,7 +229,7 @@ public type Message record {|
     byte[] accountingToken?;
     string userId?;
     Header[] headers?;
-    byte[] payload;
+    anydata payload;
 |};
 
 # Header record representing the MQRFH2 structure.

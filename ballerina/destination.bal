@@ -36,10 +36,16 @@ public isolated client class Queue {
     #
     # + message - IBM MQ message
     # + options - Options controlling the action of the put operation. Can be a combination of
-    #             one or more `ibmmq:MQPMO_*` options and values can combined using either '+' or '|'
+    # one or more `ibmmq:MQPMO_*` options and values can combined using either '+' or '|'
     # + return - An `ibmmq:Error` if the operation fails or else `()`
-    isolated remote function put(Message message, int options = MQPMO_NO_SYNCPOINT) returns Error? =
+    isolated remote function put(Message message, int options = MQPMO_NO_SYNCPOINT) returns Error? {
+        Message internalMsg = constructInternalMessage(message);
+        return self.externPut(internalMsg, options);
+    }
+
+    isolated function externPut(Message message, int options) returns Error? =
     @java:Method {
+        name: "put",
         'class: "io.ballerina.lib.ibm.ibmmq.Queue"
     } external;
 
@@ -50,7 +56,7 @@ public isolated client class Queue {
     #
     # + getMessageOptions - Options to control message retrieval
     # + return - An `ibmmq:Message` if there is a message in the queue, `()` if there
-    #           is no message or else `ibmmq:Error` if the operation fails
+    # is no message or else `ibmmq:Error` if the operation fails
     isolated remote function get(*GetMessageOptions getMessageOptions) returns Message|Error? =
     @java:Method {
         'class: "io.ballerina.lib.ibm.ibmmq.Queue"
@@ -73,27 +79,33 @@ public isolated client class Topic {
     *Destination;
 
     # Puts a message to an IBM MQ topic.
-    #```ballerina
+    # ```ballerina
     # check topic->put({payload: "Hello World".toBytes()});
-    #```
+    # ```
     #
     # + message - IBM MQ message
     # + options - Options controlling the action of the put operation. Can be a combination of
-    #             one or more `ibmmq:MQPMO_*` options and values can combined using either '+' or '|'
+    # one or more `ibmmq:MQPMO_*` options and values can combined using either '+' or '|'
     # + return - An `ibmmq:Error` if the operation fails or else `()`
-    isolated remote function put(Message message, int options = MQPMO_NO_SYNCPOINT) returns Error? =
+    isolated remote function put(Message message, int options = MQPMO_NO_SYNCPOINT) returns Error? {
+        Message internalMsg = constructInternalMessage(message);
+        return self.externPut(internalMsg, options);
+    }
+
+    isolated function externPut(Message message, int options) returns Error? =
     @java:Method {
+        name: "put",
         'class: "io.ballerina.lib.ibm.ibmmq.Topic"
     } external;
 
     # Retrieves a message from an IBM MQ topic.
-    #```ballerina
+    # ```ballerina
     # ibmmq:Message? message = check topic->get();
-    #```
+    # ```
     #
     # + getMessageOptions - Options to control message retrieval
     # + return - An `ibmmq:Message` if there is a message in the topic, `()` if there
-    #           is no message or else `ibmmq:Error` if the operation fails
+    # is no message or else `ibmmq:Error` if the operation fails
     isolated remote function get(*GetMessageOptions getMessageOptions) returns Message|Error? =
     @java:Method {
         'class: "io.ballerina.lib.ibm.ibmmq.Topic"
@@ -128,3 +140,22 @@ public isolated client class Topic {
         'class: "io.ballerina.lib.ibm.ibmmq.Topic"
     } external;
 };
+
+isolated function constructInternalMessage(Message message) returns Message {
+    byte[] payload;
+    anydata messagePayload = message.payload;
+    if messagePayload is byte[] {
+        payload = messagePayload;
+    } else if messagePayload is xml {
+        payload = messagePayload.toString().toBytes();
+    } else if messagePayload is string {
+        payload = messagePayload.toBytes();
+    } else {
+        payload = messagePayload.toJsonString().toBytes();
+    }
+    Message constructedMessage = {
+        ...message
+    };
+    constructedMessage.payload = payload;
+    return constructedMessage;
+}
