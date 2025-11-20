@@ -21,14 +21,20 @@ package io.ballerina.lib.ibm.ibmmq.listener;
 import io.ballerina.lib.ibm.ibmmq.Constants;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 
-import java.io.UnsupportedEncodingException;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
+import java.util.Map;
 
 import javax.jms.BytesMessage;
 import javax.jms.JMSException;
+import javax.jms.MapMessage;
 import javax.jms.Message;
 import javax.jms.TextMessage;
 
@@ -50,6 +56,7 @@ import static io.ballerina.lib.ibm.ibmmq.listener.Caller.NATIVE_MESSAGE;
 public class MessageMapper {
     static final BString TEXT = StringUtils.fromString("text");
     static final BString BINARY = StringUtils.fromString("binary");
+    static final BString MAP = StringUtils.fromString("map");
     static final BString UNKNOWN = StringUtils.fromString("unknown");
 
     public static BMap<BString, Object> toBallerinaMessage(Message message) throws JMSException {
@@ -81,29 +88,41 @@ public class MessageMapper {
         result.put(MESSAGE_PROPERTIES, props);
 
         // Payload - convert byte arrays to Ballerina arrays
-        if (message instanceof TextMessage) {
+        if (message instanceof TextMessage textMessage) {
             try {
-                byte[] payload = ((TextMessage) message).getText().getBytes("UTF-8");
+                byte[] payload = textMessage.getText().getBytes(StandardCharsets.UTF_8);
                 result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
-            } catch (UnsupportedEncodingException e) {
-                throw createError(IBMMQ_ERROR, "Unsupported encoding for TextMessage payload: UTF-8", e);
+            } catch (Exception e) {
+                throw createError(IBMMQ_ERROR, "Error occurred while retrieving text payload", e);
             }
             result.put(FORMAT_FIELD, TEXT);
-
-        } else if (message instanceof BytesMessage) {
-            BytesMessage bytesMessage = (BytesMessage) message;
+        } else if (message instanceof BytesMessage bytesMessage) {
             byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
             bytesMessage.readBytes(payload);
             result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
             result.put(FORMAT_FIELD, BINARY);
-
+        } else if (message instanceof MapMessage mapMessage) {
+            Map body = mapMessage.getBody(Map.class);
+            ByteArrayOutputStream byteArrayOutput = null;
+            try {
+                byteArrayOutput = new ByteArrayOutputStream();
+                ObjectOutputStream outputStream = new ObjectOutputStream(byteArrayOutput);
+                outputStream.writeObject(body);
+                outputStream.flush();
+            } catch (IOException e) {
+                throw createError(IBMMQ_ERROR, "Error occurred while retrieving map payload", e);
+            }
+            byte[] bytes = byteArrayOutput.toByteArray();
+            BArray convertedPayload = ValueCreator.createArrayValue(bytes);
+            result.put(MESSAGE_PAYLOAD, convertedPayload);
+            result.put(FORMAT_FIELD, MAP);
         } else {
             // fallback: try getBody
             byte[] fallback = null;
             try {
-                fallback = message.getBody(String.class).getBytes("UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                throw createError(IBMMQ_ERROR, "Unsupported encoding for message body: UTF-8", e);
+                fallback = message.getBody(String.class).getBytes(StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                throw createError(IBMMQ_ERROR, "Error occurred while retrieving message payload", e);
             }
             result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(fallback));
             result.put(FORMAT_FIELD, UNKNOWN);
@@ -113,7 +132,7 @@ public class MessageMapper {
     }
 
     private static byte[] safeBytes(String value) {
-        return value != null ? value.getBytes(java.nio.charset.StandardCharsets.UTF_8) : new byte[0];
+        return value != null ? value.getBytes(StandardCharsets.UTF_8) : new byte[0];
     }
 }
 
