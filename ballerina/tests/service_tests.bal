@@ -133,7 +133,7 @@ isolated function testServiceWithTransactions() returns error? {
             lock {
                 ServiceWithTransactionsMsgCount += 1;
             }
-            string content = check string:fromBytes(message.payload);
+            string content = check string:fromBytes(<byte[]>message.payload);
             if content == "End of messages" {
                 check caller->'commit();
             }

@@ -31,7 +31,7 @@ function basicQueueProducerConsumerTest() returns error? {
     });
     Message? message = check consumer->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
     } else {
         test:assertFail("Expected a value for message");
     }
@@ -53,7 +53,7 @@ function basicQueueProducerConsumerWithOneQueueObjectTest() returns error? {
     });
     Message? message = check queue->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(message.payload), "Hello World with one queue");
+        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World with one queue");
     } else {
         test:assertFail("Expected a value for message");
     }
@@ -107,7 +107,7 @@ function basicQueueProducerConsumerWithJsonPayloadTest() returns error? {
     });
     Message? message = check consumer->get();
     if message !is () {
-        string rawMessageBody = check string:fromBytes(message.payload);
+        string rawMessageBody = check string:fromBytes(<byte[]>message.payload);
         json receivedMessage = check rawMessageBody.fromJsonString();
         test:assertEquals(receivedMessage, messageBody);
     } else {
@@ -135,7 +135,7 @@ function pubSubMultipleMessagesQueueProducerConsumerTest() returns error? {
     foreach int i in 0 ... 4 {
         Message? message = check consumer->get(options = MQGMO_WAIT, waitInterval = 2);
         if message !is () {
-            test:assertEquals(string:fromBytes(message.payload), i.toString());
+            test:assertEquals(string:fromBytes(<byte[]>message.payload), i.toString());
         } else {
             test:assertFail("Expected a value for message");
         }
@@ -256,7 +256,7 @@ function produceAndConsumerMessageWithAdditionalPropertiesTest() returns error? 
     });
     Message? message = check consumer->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
         test:assertEquals(message.expiry, timeNow[0]);
         test:assertEquals(message.format, "mqformat");
         test:assertEquals(message.messageType, 2);
@@ -330,7 +330,7 @@ function produceAndConsumerMessageWithAdditionalPropertiesWithJsonPayloadTest() 
     });
     Message? message = check consumer->get();
     if message !is () {
-        string rawMessageBody = check string:fromBytes(message.payload);
+        string rawMessageBody = check string:fromBytes(<byte[]>message.payload);
         json receivedMessage = check rawMessageBody.fromJsonString();
         test:assertEquals(receivedMessage, messageBody);
         test:assertEquals(message.expiry, timeNow[0]);
@@ -384,7 +384,7 @@ function produceAndConsumerMessageWithMultipleHeaderTypesTest() returns error? {
     });
     Message? message = check consumer->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
         Header[]? headers = message.headers;
         if headers is () {
             test:assertFail("Expected MQCIH headers");
@@ -483,7 +483,7 @@ function produceAndConsumerMessageWithMultipleHeaderTypesWithJsonPayloadTest() r
     });
     Message? message = check consumer->get();
     if message !is () {
-        string rawMessageBody = check string:fromBytes(message.payload);
+        string rawMessageBody = check string:fromBytes(<byte[]>message.payload);
         json receivedMessage = check rawMessageBody.fromJsonString();
         test:assertEquals(receivedMessage, messageBody);
         Header[]? headers = message.headers;
@@ -539,7 +539,7 @@ function produceMessagesWithIdentification() returns error? {
     Message? message = check queue->get();
     test:assertTrue(message is Message, "Could not retrieve a message");
 
-    byte[]? payload = message?.payload;
+    byte[]? payload = <byte[]>message?.payload;
     test:assertEquals(message?.userId, userId, "Invalid userId");
     byte[] retrievedAccountingToken = trimTrailingZeros(check message?.accountingToken.ensureType());
     test:assertEquals(retrievedAccountingToken, accountingToken.toBytes(), "Invalid accounting token");
@@ -569,7 +569,7 @@ function produceMessagesWithCharacterSet() returns error? {
     test:assertTrue(message is Message, "Could not retrieve a message");
 
     test:assertEquals(message?.characterSet, characterSet, "Invalid character-set found");
-    byte[]? payload = message?.payload;
+    byte[]? payload = <byte[]>message?.payload;
     test:assertEquals(string:fromBytes(check payload.ensureType()), messageContent, "Invalid message content");
 
     check queue->close();
@@ -602,7 +602,7 @@ function produceMessageWithEncoding() returns error? {
 
     test:assertEquals(message?.encoding, encoding, "Invalid encoding found");
 
-    byte[]? retrievedPayload = message?.payload;
+    byte[]? retrievedPayload = <byte[]>message?.payload;
     if retrievedPayload is () {
         test:assertFail("Could not find the message payload");
     }
@@ -633,7 +633,7 @@ function produceConsumeWithMsgId() returns error? {
     Message? message = check queue->get(matchOptions = { messageId: providedMsgId });
     test:assertTrue(message is Message, "Could not retrieve a message for a valid message identifier");
 
-    byte[]? payload = message?.payload;
+    byte[]? payload = <byte[]>message?.payload;
     test:assertEquals(string:fromBytes(check payload.ensureType()), messageContent);
 
     check queue->close();
@@ -683,7 +683,7 @@ function produceConsumeWithCorrId() returns error? {
     byte[]? correlationId = message?.correlationId;
     test:assertTrue(correlationId is byte[], "Could not find the correlation identifier for the message");
 
-    byte[]? payload = message?.payload;
+    byte[]? payload = <byte[]>message?.payload;
     test:assertEquals(string:fromBytes(check payload.ensureType()), messageContent);
 
     check queue->close();
@@ -732,7 +732,7 @@ function produceConsumeWithMsgIdAndCorrId() returns error? {
     Message? message = check queue->get(matchOptions = { messageId: providedMsgId, correlationId: providedCorrId });
     test:assertTrue(message is Message, "Could not retrieve a message for a valid message identifier and correlation identifier");
 
-    byte[]? payload = message?.payload;
+    byte[]? payload = <byte[]>message?.payload;
     test:assertEquals(string:fromBytes(check payload.ensureType()), messageContent);
 
     check queue->close();
