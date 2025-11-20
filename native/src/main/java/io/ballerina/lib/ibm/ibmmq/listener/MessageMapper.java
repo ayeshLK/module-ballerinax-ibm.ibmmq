@@ -88,44 +88,49 @@ public class MessageMapper {
         result.put(MESSAGE_PROPERTIES, props);
 
         // Payload - convert byte arrays to Ballerina arrays
-        if (message instanceof TextMessage textMessage) {
-            try {
-                byte[] payload = textMessage.getText().getBytes(StandardCharsets.UTF_8);
+        switch (message) {
+            case TextMessage textMessage -> {
+                try {
+                    byte[] payload = textMessage.getText().getBytes(StandardCharsets.UTF_8);
+                    result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
+                } catch (Exception e) {
+                    throw createError(IBMMQ_ERROR, "Error occurred while retrieving text payload", e);
+                }
+                result.put(FORMAT_FIELD, TEXT);
+            }
+            case BytesMessage bytesMessage -> {
+                byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
+                bytesMessage.readBytes(payload);
                 result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
-            } catch (Exception e) {
-                throw createError(IBMMQ_ERROR, "Error occurred while retrieving text payload", e);
+                result.put(FORMAT_FIELD, BINARY);
             }
-            result.put(FORMAT_FIELD, TEXT);
-        } else if (message instanceof BytesMessage bytesMessage) {
-            byte[] payload = new byte[(int) bytesMessage.getBodyLength()];
-            bytesMessage.readBytes(payload);
-            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
-            result.put(FORMAT_FIELD, BINARY);
-        } else if (message instanceof MapMessage mapMessage) {
-            Map body = mapMessage.getBody(Map.class);
-            ByteArrayOutputStream byteArrayOutput = null;
-            try {
-                byteArrayOutput = new ByteArrayOutputStream();
-                ObjectOutputStream outputStream = new ObjectOutputStream(byteArrayOutput);
-                outputStream.writeObject(body);
-                outputStream.flush();
-            } catch (IOException e) {
-                throw createError(IBMMQ_ERROR, "Error occurred while retrieving map payload", e);
+            case MapMessage mapMessage -> {
+                Map body = mapMessage.getBody(Map.class);
+                ByteArrayOutputStream byteArrayOutput = null;
+                try {
+                    byteArrayOutput = new ByteArrayOutputStream();
+                    ObjectOutputStream outputStream = new ObjectOutputStream(byteArrayOutput);
+                    outputStream.writeObject(body);
+                    outputStream.flush();
+                } catch (IOException e) {
+                    throw createError(IBMMQ_ERROR, "Error occurred while retrieving map payload", e);
+                }
+                byte[] bytes = byteArrayOutput.toByteArray();
+                BArray convertedPayload = ValueCreator.createArrayValue(bytes);
+                result.put(MESSAGE_PAYLOAD, convertedPayload);
+                result.put(FORMAT_FIELD, MAP);
             }
-            byte[] bytes = byteArrayOutput.toByteArray();
-            BArray convertedPayload = ValueCreator.createArrayValue(bytes);
-            result.put(MESSAGE_PAYLOAD, convertedPayload);
-            result.put(FORMAT_FIELD, MAP);
-        } else {
-            // fallback: try getBody
-            byte[] fallback = null;
-            try {
-                fallback = message.getBody(String.class).getBytes(StandardCharsets.UTF_8);
-            } catch (Exception e) {
-                throw createError(IBMMQ_ERROR, "Error occurred while retrieving message payload", e);
+            default -> {
+                // fallback: try getBody
+                byte[] fallback = null;
+                try {
+                    fallback = message.getBody(String.class).getBytes(StandardCharsets.UTF_8);
+                } catch (Exception e) {
+                    throw createError(IBMMQ_ERROR, "Error occurred while retrieving message payload", e);
+                }
+                result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(fallback));
+                result.put(FORMAT_FIELD, UNKNOWN);
             }
-            result.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(fallback));
-            result.put(FORMAT_FIELD, UNKNOWN);
         }
         result.addNativeData(NATIVE_MESSAGE, message);
         return result;
