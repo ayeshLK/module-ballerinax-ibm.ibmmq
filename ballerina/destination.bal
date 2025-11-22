@@ -20,7 +20,7 @@ import ballerina/jballerina.java;
 public type Destination distinct client object {
     remote function put(Message message, int options = 0) returns Error?;
 
-    remote function get(*GetMessageOptions getMessageOptions) returns Message|Error?;
+    remote function get(typedesc<Message> T = <>, *GetMessageOptions getMessageOptions) returns T|Error?;
 
     remote function close() returns Error?;
 };
@@ -54,10 +54,11 @@ public isolated client class Queue {
     # ibmmq:Message? message = check queue->get();
     # ```
     #
+    # + T - Optional type description of the expected data type
     # + getMessageOptions - Options to control message retrieval
     # + return - An `ibmmq:Message` if there is a message in the queue, `()` if there
     # is no message or else `ibmmq:Error` if the operation fails
-    isolated remote function get(*GetMessageOptions getMessageOptions) returns Message|Error? =
+    isolated remote function get(typedesc<Message> T = <>, *GetMessageOptions getMessageOptions) returns T|Error? =
     @java:Method {
         'class: "io.ballerina.lib.ibm.ibmmq.Queue"
     } external;
@@ -103,10 +104,11 @@ public isolated client class Topic {
     # ibmmq:Message? message = check topic->get();
     # ```
     #
+    # + T - Optional type description of the expected data type
     # + getMessageOptions - Options to control message retrieval
     # + return - An `ibmmq:Message` if there is a message in the topic, `()` if there
     # is no message or else `ibmmq:Error` if the operation fails
-    isolated remote function get(*GetMessageOptions getMessageOptions) returns Message|Error? =
+    isolated remote function get(typedesc<Message> T = <>, *GetMessageOptions getMessageOptions) returns T|Error? =
     @java:Method {
         'class: "io.ballerina.lib.ibm.ibmmq.Topic"
     } external;

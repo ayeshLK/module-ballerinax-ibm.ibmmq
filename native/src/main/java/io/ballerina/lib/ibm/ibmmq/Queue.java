@@ -29,6 +29,7 @@ import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
+import io.ballerina.runtime.api.values.BTypedesc;
 
 import static io.ballerina.lib.ibm.ibmmq.CommonUtils.createError;
 import static io.ballerina.lib.ibm.ibmmq.Constants.IBMMQ_ERROR;
@@ -54,7 +55,8 @@ public class Queue {
         });
     }
 
-    public static Object get(Environment environment, BObject queueObject, BMap<BString, Object> bGetMsgOptions) {
+    public static Object get(Environment environment, BObject queueObject, BTypedesc bTypedesc,
+                             BMap<BString, Object> bGetMsgOptions) {
         MQQueue queue = (MQQueue) queueObject.getNativeData(Constants.NATIVE_QUEUE);
         GetMessageOptions getMsgOptions = new GetMessageOptions(bGetMsgOptions);
         MQMessage mqMessage = CommonUtils.getMqMessage(getMsgOptions.matchOptions());
@@ -62,7 +64,7 @@ public class Queue {
         return environment.yieldAndRun(() -> {
             try {
                 queue.get(mqMessage, mqGetMsgOptions);
-                return CommonUtils.getBMessageFromMQMessage(environment.getRuntime(), mqMessage);
+                return CommonUtils.getBMessageFromMQMessage(environment.getRuntime(), mqMessage, bTypedesc);
             } catch (MQException e) {
                 if (e.reasonCode == CMQC.MQRC_NO_MSG_AVAILABLE) {
                     return null;
@@ -71,6 +73,10 @@ public class Queue {
                             String.format("Error occurred while getting a message from the queue: %s",
                                     e.getMessage()), e);
                 }
+            } catch (Exception e) {
+                return createError(IBMMQ_ERROR,
+                        String.format("Error occurred while getting a message from the queue: %s",
+                                e.getMessage()), e);
             }
         });
     }

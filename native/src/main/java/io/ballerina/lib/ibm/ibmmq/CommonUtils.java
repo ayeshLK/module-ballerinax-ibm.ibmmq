@@ -36,12 +36,22 @@ import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.flags.SymbolFlags;
 import io.ballerina.runtime.api.types.ArrayType;
+import io.ballerina.runtime.api.types.IntersectionType;
 import io.ballerina.runtime.api.types.PredefinedTypes;
+import io.ballerina.runtime.api.types.RecordType;
+import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.TypeTags;
+import io.ballerina.runtime.api.types.UnionType;
+import io.ballerina.runtime.api.utils.JsonUtils;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.TypeUtils;
+import io.ballerina.runtime.api.utils.ValueUtils;
+import io.ballerina.runtime.api.utils.XmlUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
+import io.ballerina.runtime.api.values.BTypedesc;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -61,7 +71,6 @@ import javax.jms.Message;
 import javax.jms.Session;
 import javax.net.ssl.SSLSocketFactory;
 
-import static io.ballerina.lib.ibm.ibmmq.Constants.BMESSAGE_NAME;
 import static io.ballerina.lib.ibm.ibmmq.Constants.BPROPERTY;
 import static io.ballerina.lib.ibm.ibmmq.Constants.CORRELATION_ID_FIELD;
 import static io.ballerina.lib.ibm.ibmmq.Constants.ERROR_COMPLETION_CODE;
@@ -105,6 +114,8 @@ import static io.ballerina.lib.ibm.ibmmq.headers.MQCIHHeader.createMQCIHHeaderFr
 import static io.ballerina.lib.ibm.ibmmq.headers.MQIIHHeader.createMQIIHHeaderFromBHeader;
 import static io.ballerina.lib.ibm.ibmmq.headers.MQRFH2Header.createMQRFH2HeaderFromBHeader;
 import static io.ballerina.lib.ibm.ibmmq.headers.MQRFHHeader.createMQRFHHeaderFromBHeader;
+import static io.ballerina.runtime.api.types.TypeTags.STRING_TAG;
+import static io.ballerina.runtime.api.types.TypeTags.UNION_TAG;
 
 /**
  * {@code CommonUtils} contains the common utility functions for the Ballerina IBM MQ connector.
@@ -224,8 +235,11 @@ public class CommonUtils {
         }
     }
 
-    public static BMap<BString, Object> getBMessageFromMQMessage(Runtime runtime, MQMessage mqMessage) {
-        BMap<BString, Object> bMessage = ValueCreator.createRecordValue(getModule(), BMESSAGE_NAME);
+    public static BMap<BString, Object> getBMessageFromMQMessage(Runtime runtime, MQMessage mqMessage,
+                                                                 BTypedesc expectedType) {
+        RecordType messageType = getRecordType(expectedType);
+        RecordType recordType = getRecordType(messageType);
+        BMap<BString, Object> bMessage = ValueCreator.createRecordValue(recordType);
         try {
             bMessage.put(MESSAGE_HEADERS, getBHeaders(runtime, mqMessage));
             bMessage.put(MESSAGE_PROPERTY, getBProperties(mqMessage));
@@ -249,12 +263,74 @@ public class CommonUtils {
             }
             byte[] payload = mqMessage.readStringOfByteLength(mqMessage.getDataLength())
                     .getBytes(StandardCharsets.UTF_8);
-            bMessage.put(MESSAGE_PAYLOAD, ValueCreator.createArrayValue(payload));
+            bMessage.put(MESSAGE_PAYLOAD, getPayloadWithIntendedTypeForBMessage(payload, recordType));
             return bMessage;
         } catch (MQException | IOException e) {
             throw createError(IBMMQ_ERROR,
                     String.format("Error occurred while reading the message: %s", e.getMessage()), e);
         }
+    }
+
+    private static RecordType getRecordType(BTypedesc bTypedesc) {
+        RecordType recordType;
+        if (bTypedesc.getDescribingType().isReadOnly()) {
+            recordType = (RecordType) ((IntersectionType) (bTypedesc.getDescribingType())).getConstituentTypes().get(0);
+        } else {
+            recordType = (RecordType) bTypedesc.getDescribingType();
+        }
+        return recordType;
+    }
+
+    private static RecordType getRecordType(Type type) {
+        if (type.getTag() == TypeTags.INTERSECTION_TAG) {
+            return (RecordType) TypeUtils.getReferredType(((IntersectionType) (type)).getConstituentTypes().get(0));
+        }
+        return (RecordType) type;
+    }
+
+    private static Object getPayloadWithIntendedTypeForBMessage(byte[] payload, RecordType recordType) {
+        Type intendedType = TypeUtils.getReferredType(recordType.getFields()
+                .get(MESSAGE_PAYLOAD.getValue()).getFieldType());
+        return constructMessageDataWithBType(payload, intendedType);
+    }
+
+    private static Object constructMessageDataWithBType(byte[] data, Type type) throws DataBindingException {
+        String strValue = new String(data, StandardCharsets.UTF_8);
+        try {
+            switch (type.getTag()) {
+                case STRING_TAG:
+                    return StringUtils.fromString(strValue);
+                case TypeTags.XML_TAG:
+                    return XmlUtils.parse(strValue);
+                case TypeTags.ANYDATA_TAG:
+                    return ValueCreator.createArrayValue(data);
+                case TypeTags.RECORD_TYPE_TAG:
+                    return ValueUtils.convert(JsonUtils.parse(strValue), type);
+                case UNION_TAG:
+                    if (hasStringType((UnionType) type)) {
+                        return StringUtils.fromString(strValue);
+                    }
+                    return getValueFromJson(type, strValue);
+                case TypeTags.ARRAY_TAG:
+                    if (TypeUtils.getReferredType(((ArrayType) type).getElementType()).getTag() == TypeTags.BYTE_TAG) {
+                        return ValueCreator.createArrayValue(data);
+                    }
+                    /*-fallthrough*/
+                default:
+                    return getValueFromJson(type, strValue);
+            }
+        } catch (BError bError) {
+            String errMsg = String.format("Data binding failed: %s", bError.getMessage());
+            throw new DataBindingException(errMsg, bError);
+        }
+    }
+
+    private static boolean hasStringType(UnionType type) {
+        return type.getMemberTypes().stream().anyMatch(memberType -> memberType.getTag() == STRING_TAG);
+    }
+
+    private static Object getValueFromJson(Type type, String stringValue) {
+        return ValueUtils.convert(JsonUtils.parse(stringValue), type);
     }
 
     private static BMap<BString, Object> getBProperties(MQMessage mqMessage) throws MQException {
