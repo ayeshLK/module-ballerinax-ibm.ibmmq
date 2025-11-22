@@ -41,9 +41,9 @@ function basicPublisherSubscriberSecureSocketTest() returns error? {
     check publisher->put({
         payload: "Hello World".toBytes()
     });
-    Message? message = check subscriber->get();
+    record {|*Message; byte[] payload;|}? message = check subscriber->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
     } else {
         test:assertFail("Expected a value for message");
     }
@@ -77,9 +77,9 @@ function basicQueueProducerConsumerSecureSocketTest() returns error? {
     check producer->put({
         payload: "Hello World".toBytes()
     });
-    Message? message = check consumer->get();
+    record {|*Message; byte[] payload;|}? message = check consumer->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
     } else {
         test:assertFail("Expected a value for message");
     }
@@ -116,9 +116,9 @@ function basicPublisherSubscriberSecureSocketJksTest() returns error? {
     check publisher->put({
         payload: "Hello World".toBytes()
     });
-    Message? message = check subscriber->get();
+    record {|*Message; byte[] payload;|}? message = check subscriber->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
     } else {
         test:assertFail("Expected a value for message");
     }
@@ -155,9 +155,9 @@ function basicQueueProducerConsumerSecureSocketJksTest() returns error? {
     check producer->put({
         payload: "Hello World".toBytes()
     });
-    Message? message = check consumer->get();
+    record {|*Message; byte[] payload;|}? message = check consumer->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
     } else {
         test:assertFail("Expected a value for message");
     }

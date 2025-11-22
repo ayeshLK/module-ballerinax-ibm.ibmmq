@@ -28,9 +28,9 @@ function basicPublisherSubscriberTest() returns error? {
     check publisher->put({
         payload: "Hello World".toBytes()
     });
-    Message? message = check subscriber->get();
+    record {|*Message; byte[] payload;|}? message = check subscriber->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
     } else {
         test:assertFail("Expected a value for message");
     }
@@ -54,9 +54,9 @@ function pubSubMultipleMessagesInOrderTest() returns error? {
         });
     }
     foreach int i in 0 ... 4 {
-        Message? message = check subscriber->get(options = MQGMO_WAIT, waitInterval = 5);
+        record {|*Message; byte[] payload;|}? message = check subscriber->get(options = MQGMO_WAIT, waitInterval = 5);
         if message !is () {
-            test:assertEquals(string:fromBytes(<byte[]>message.payload), i.toString());
+            test:assertEquals(string:fromBytes(message.payload), i.toString());
         } else {
             test:assertFail("Expected a value for message");
         }
@@ -78,9 +78,9 @@ function subscribeWithFiniteTimeoutTest() returns error? {
     check publisher->put({
         payload: "Hello World".toBytes()
     });
-    Message? message = check subscriber->get(options = MQGMO_WAIT, waitInterval = 5);
+    record {|*Message; byte[] payload;|}? message = check subscriber->get(options = MQGMO_WAIT, waitInterval = 5);
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
     } else {
         test:assertFail("Expected a value for message");
     }
@@ -278,9 +278,9 @@ function publishSubscribeWithMQRFH2HeadersTest() returns error? {
             }
         ]
     });
-    Message? message = check subscriber->get();
+    record {|*Message; byte[] payload;|}? message = check subscriber->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
         Header[]? headers = message.headers;
         if headers is () {
             test:assertFail("Expected MQRFH2 headers");
@@ -337,9 +337,9 @@ function publishSubscribeWithMQRFHHeadersTest() returns error? {
             }
         ]
     });
-    Message? message = check subscriber->get();
+    record {|*Message; byte[] payload;|}? message = check subscriber->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
         Header[]? headers = message.headers;
         if headers is () {
             test:assertFail("Expected MQRFH headers");
@@ -399,9 +399,9 @@ function publishSubscribeWithMQCIHHeadersTest() returns error? {
             }
         ]
     });
-    Message? message = check subscriber->get();
+    record {|*Message; byte[] payload;|}? message = check subscriber->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
         Header[]? headers = message.headers;
         if headers is () {
             test:assertFail("Expected MQCIH headers");
@@ -475,9 +475,9 @@ function publishSubscribeWithMQIIHHeadersTest() returns error? {
             }
         ]
     });
-    Message? message = check subscriber->get();
+    record {|*Message; byte[] payload;|}? message = check subscriber->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
         Header[]? headers = message.headers;
         if headers is () {
             test:assertFail("Expected MQIIH headers");
@@ -553,9 +553,9 @@ function publishSubscribeWithMultipleHeaderTypesTest() returns error? {
             }
         ]
     });
-    Message? message = check subscriber->get();
+    record {|*Message; byte[] payload;|}? message = check subscriber->get();
     if message !is () {
-        test:assertEquals(string:fromBytes(<byte[]>message.payload), "Hello World");
+        test:assertEquals(string:fromBytes(message.payload), "Hello World");
         Header[]? headers = message.headers;
         if headers is () {
             test:assertFail("Expected MQCIH headers");
